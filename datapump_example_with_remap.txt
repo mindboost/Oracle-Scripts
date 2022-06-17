@@ -1,0 +1,68 @@
+*******This script used datapump to export the product Nimbus schema**********
+
+
+
+DATE=`date +"%Y%m%d_%H%M"`
+export ORACLE_BASE=/u01/app/oracle/oranim01
+export ORACLE_HOME=/u01/app/oracle/oranim01/product/10.2.0
+export ORACLE_SID=oranim01
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib
+export PATH=$ORACLE_HOME/bin:$PATH
+
+EXPFILE=$ORACLE_SID.verio_prod_exp_ALL_MD_$DATE.dmp
+EXPLOGFILE=$ORACLE_SID.verio_prod_exp_ALL_MD_$DATE.log
+FLASHBACK_TIME=`date +"%Y-%m-%d %T"`
+EXPDIR=/u03/oradata/oranim01/expdp
+
+expdp system/p51cobra@oranim01 full=n schemas=verio_prod directory=dpump_dir dumpfile=$EXPFILE logfile=$EXPLOGFILE content=ALL compression=METADATA_ONLY
+
+#       Compress export file
+# 
+
+cd $EXPDIR
+gzip $EXPFILE
+
+# -------------------------------------
+#       House-keeping
+#
+echo "Perform House-keeping" 
+
+
+echo " Following old export file(s) Removed ..."
+
+          # Delete files older than 7 days.
+          find "$EXPDIR"/ \( -name "$ORACLE_SID.verio_prod_exp_*.dmp.gz" \) -mtime +7 -print -exec rm {} \;
+          find "$EXPDIR"/ \( -name "$ORACLE_SID.verio_prod_exp_*.log" \) -mtime +7 -print -exec rm {} \;
+echo " File Removal Complete "
+
+
+
+*********************** This script uses datapump to import the production nimbus (verio_prod) schema into verio_copy and remaps the object to ****************
+ORACLE_SID="ora10gt"
+export ORACLE_SID
+ORACLE_HOME=/u01/app/oracle/oradev01/product/10.2.0
+export ORACLE_HOME
+
+drop user nimbus_copy cascade;
+
+CREATE USER nimbus_copy
+  IDENTIFIED BY  password
+
+grant create session to nimbus_copy;
+grant veriodev to nimbus_copy;
+
+*note - had to export oracle_sid and oracle_base
+
+**** This command worked going ************
+/u01/app/oracle/oradev01/product/10.2.0/bin/impdp system@ora10gt parfile=nimbus_copy.par
+
+
+Example of par file:
+
+directory=dpump_dir
+dumpfile=oranim01.verio_prod_exp_ALL_MD_20130122_1636.dmp
+logfile=nimbus_copy_imp_20122301.log 
+schemas=verio_prod 
+remap_schema=verio_prod:nimbus_copy 
+remap_tablespace=nimbus_data:nimbus_copy_data
+version=10.2.0.4.0 exclude=table:"in ('BILL_IMAGE')"

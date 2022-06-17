@@ -1,0 +1,23 @@
+expdp / full=y directory=dpump_dir dumpfile=oravp02.full_exp_20110924_MD.dmp logfile=oravp02.full_exp_20110924.log flashback_time=\date +"%Y-%m-%d %T"\
+
+
+
+SQL> drop user vmw_va1_dbovcenter02 cascade;
+User dropped.
+
+
+
+create user vmw_va1_dbovcenter02 identified by IbidyBibbidyB00p55
+grant connect, resource to vmw_va1_dbovcenter02
+grant execute on DBMS_LOCK to vmw_va1_dbovcenter02
+grant veriodev to vmw_va1_dbovcenter02;
+grant create any sequence, create any table to vmw_va1_dbovcenter02;
+
+
+
+
+impdp / schemas=VMW_VA1_DBOVCENTER02 directory=dpump_dir dumpfile=oravp02.full_exp_20110924_0800.dmp logfile=oravp02.full_imp_20110924_0800_MD.log
+
+
+
+VPX_VM

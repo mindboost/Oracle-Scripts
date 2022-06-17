@@ -1,0 +1,132 @@
+Creating a new datapump directory because I didn't want to use the default:
+create directory dmpdir AS '/mnt'
+
+grant read, write on directory dmpdir to system;
+
+Ran IMPDP in sqlfile mode just to generate sql which would actually be ran for real import.
+impdp system/alex123@test_dba DIRECTORY=dmpdir DUMPFILE=orams01.full_exp_20150601_0500.dmp SQLFILE=dmpdir:import_orams01.sql
+
+
+Ran IMPDP in sqlfile mode again to only generate sql file that included tablespace details
+impdp system/alex123@test_dba DIRECTORY=dmpdir DUMPFILE=orams01.full_exp_20150601_0500.dmp SQLFILE=dmpdir:create_tb_orams01.sql include=tablespace
+
+Edited the file created above create_tb_orams01.sql by doing the following:
+Removed all the statements referencing existing tablespaces users, undo, temp etc.
+
+Changed the local file location from orams01(/u02/oradata/orams01/*) to +ASM (+DATA/TEST_DBA/DATAFILE/) file group.
+
+Logged in as sql and ran only the create_tb_orams01.sql
+
+
+Then executed the IMPDP with the option excluding the tablespace since they were created above:
+
+impdp system/alex123@test_dba DIRECTORY=dmpdir DUMPFILE=orams01.full_exp_20150601_0500.dmp exclude=tablespace
+
+
+++++++++++++++++++++++++++++++++++++++++++++
+Updated import to use par file
+
+Import statement
+=================
+1. Manually Create roles/profiles
+create profile opbx_profile limit sessions_per_user 50;
+create profile ossb_profile limit sessions_per_user 50;
+create profile vmp_app_profile limit sessions_per_user 400;
+create profile vmp_prov_profile limit sessions_per_user 400;
+create profile vmp_ro_profile limit sessions_per_user 5;
+
+create profile vmp_adapt_profile
+limit sessions_per_user 20
+/
+
+create profile vmp_terms_profile limit sessions_per_user 20;
+
+
+create role OPBXAMQ_STAGE_APP_ROLE;
+create role OPBXBAM_STAGE_APP_ROLE;
+create role OPBXBMS_STAGE_APP_ROLE;
+create role OPBXESB_STAGE_APP_ROLE;
+create role OPBXGAD_STAGE_APP_ROLE;
+create role OPBXREGISTRY_STAGE_APP_ROLE;
+create role OPBXSEC_STAGE_APP_ROLE;
+create role OPBX_STAGE_APP_ROLE;
+create role VERIODEV;
+create role VMP_CORE_STAGE01_APP_ROLE;
+create role VMP_CORE_STAGE01_ROLE;
+create role VMP_CORE_STAGE01_RO_ROLE;
+create role VMP_PROV_STAGE01_APP_ROLE;
+
+
+impdp system/alex123@test_dba parfile=create_orams01.par
+
+
+create_orams01.par
+
+directory=dmpdir
+dumpfile=orams01.full_exp_20150601_0500.dmp
+EXCLUDE=TABLESPACE
+schemas=ADAPTBYHAND, ADAPTBYHAND_APP, ADAPTCLOUDN, ADAPTCLOUDN2,ADAPTCLOUDN2_APP,ADAPTCLOUDN_APP, ADAPTCOREPLUS, ADAPTCOREPLUS_APP, 
+ADAPTDNR, ADAPTDNR_APP, ADAPTDNS, ADAPTDNS_APP, ADAPTGETLOCAL, ADAPTGETLOCAL_APP, ADAPTGOMOBI, ADAPTGOMOBI_APP, ADAPTHOSTING, ADAPTHOSTING_APP, 
+ADAPTINTERMEDIA, ADAPTINTERMEDIA_APP, ADAPTJAVADUMMY, ADAPTJAVADUMMY_APP, ADAPTMXLOGIC, ADAPTMXLOGIC_APP, ADAPTMYSQL, ADAPTMYSQL_APP, ADAPTNETDUMMY, 
+ADAPTNETDUMMY_APP, ADAPTNETSVC, ADAPTNETSVC_APP, ADAPTONDEMAND, ADAPTONDEMAND_APP, ADAPTROUTER, ADAPTROUTER_APP, ADAPTSEOTOOL, ADAPTSEOTOOL_APP, 
+ADAPTSIMPLESCRIPTS, ADAPTSIMPLESCRIPTS_APP, ADAPTTEST, ADAPTTEST_APP, ADAPTWEBSPLANET, ADAPTWEBSPLANET_APP, ADAPTZIMBRA, ADAPTZIMBRA_APP, MPTERMS,
+MPTERMS_APP, OPBXAMQ_STAGE, OPBXAMQ_STAGE_APP, OPBXBAM_STAGE, OPBXBAM_STAGE_APP, OPBXBMS_STAGE, OPBXBMS_STAGE_APP, OPBXESB2_STAGE, OPBXESB2_STAGE_APP, 
+OPBXESB_STAGE, OPBXESB_STAGE_APP, OPBXGAD_STAGE, OPBXGAD_STAGE_APP, OPBXREGISTRY_STAGE, OPBXREGISTRY_STAGE_APP, OPBXSEC_STAGE, OPBXSEC_STAGE_APP, 
+OPBX_STAGE, OPBX_STAGE_APP, VMP_CORE_STAGE01, VMP_CORE_STAGE01_APP, VMP_CORE_STAGE01_RO, VMP_PROV_STAGE01, VMP_PROV_STAGE01_APP01
+
+
+
+Error Received when importing using .par file - To resolve error below remove the logfile parameter. This causes conflict.
+
+Connected to: Oracle Database 11g Release 11.2.0.4.0 - 64bit Production
+With the Real Application Clusters and Automatic Storage Management options
+ORA-39002: invalid operation
+ORA-39070: Unable to open the log file.
+ORA-29283: invalid file operation
+ORA-06512: at "SYS.UTL_FILE", line 536
+ORA-29283: invalid file operation
+
+
+
+Problem: impdp hanging for hours with no progress
+specifically the last entry in the import was the following:
+
+"Processing object type DATABASE_EXPORT/SCHEMA/TABLE/TABLE_DATA "
+
+
+Checked FRA (Flash Recovery Area)
+SQL> select space_used/1024/1024/1024, space_limit/1024/1024/1024 from v$recovery_file_dest;
+
+SPACE_USED/1024/1024/1024 SPACE_LIMIT/1024/1024/1024
+------------------------- --------------------------
+               4.28515625                 4.30371094
+			   
+
+As you can see above almost all of the 4.3G available was used
+
+Had to bump it up to 20G:
+
+SQL> alter system set db_recovery_file_dest_size=20G;
+
+System altered.
+
+
+Immediately I saw movement in amount of space being used:
+
+SQL> select space_used/1024/1024/1024, space_limit/1024/1024/1024 from v$recovery_file_dest;
+
+SPACE_USED/1024/1024/1024 SPACE_LIMIT/1024/1024/1024
+------------------------- --------------------------
+                4.6796875                         20
+
+SQL> /
+
+SPACE_USED/1024/1024/1024 SPACE_LIMIT/1024/1024/1024
+------------------------- --------------------------
+               4.77734375                         20
+
+SQL> /
+
+SPACE_USED/1024/1024/1024 SPACE_LIMIT/1024/1024/1024
+------------------------- --------------------------
+               5.51171875                         20

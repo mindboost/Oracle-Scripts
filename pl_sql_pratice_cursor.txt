@@ -1,0 +1,89 @@
+SET SERVEROUTPUT ON;
+
+    DECLARE
+
+      -- define exceptions
+
+  	NO_REVENUE EXCEPTION;
+
+
+      -- declare a cursor
+
+      CURSOR  user_plancode IS
+
+          SELECT u.export_group_id, 
+                 u.userid, 
+                 u.plancode,
+                 u.reseller,
+                 pp.pr_month
+
+          FROM userfile u, 
+               premier_partner_dealers pd, 
+               premier_partner_subchannels ps,
+               premier_partner_plan_prices pp
+        fowarded       
+	   WHERE 
+		u.export_group_id=pd.export_group_id
+                and u.reseller=pd.dealerid
+                and pd.export_group_id=ps.export_group_id
+                and pd.ppid=ps.ppid
+                and ps.export_group_id=pp.export_group_id
+                and ps.ppid=pp.ppid
+                and ps.pricecode=pp.pricecode
+                and u.export_group_id=pp.export_group_id
+                and u.plancode=pp.plancode
+		and u.export_group_id='group13' and u.acct_status='A' 
+		and pd.status_rec='A'
+		and ps.status_rec='A'
+                and pp.status_rec='A'
+                and userid like 'w%';
+
+   
+
+
+      r_user_plancode user_plancode%ROWTYPE;
+
+    BEGIN
+     
+     
+      OPEN user_plancode;
+
+      LOOP
+
+        -- fetch information from cursor into record
+
+        FETCH user_plancode INTO r_user_plancode;
+
+        IF r_user_plancode.pr_month = 0 THEN
+      		RAISE NO_REVENUE;
+        END IF;
+  
+
+        EXIT WHEN user_plancode%NOTFOUND;
+
+     
+
+        -- print department - chief
+
+        DBMS_OUTPUT.PUT_LINE(r_user_plancode.export_group_id || ' - ' ||
+
+                             r_user_plancode.userid || ',' ||
+
+                             r_user_plancode.plancode || ',' ||
+
+			     r_user_plancode.pr_month);
+
+      END LOOP;
+
+      -- close cursor cur_chief
+
+      CLOSE user_plancode;
+
+
+       EXCEPTION
+	 WHEN NO_REVENUE THEN
+            DBMS_OUTPUT.put_line('Plancode ' || r_user_plancode.plancode ||
+                                ' has no MRR');
+    END;
+
+    /

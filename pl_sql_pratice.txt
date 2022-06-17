@@ -1,0 +1,30 @@
+set serveroutput on
+declare
+        l_start_date date;
+        v_description varchar2(10);
+        cursor get_descript is
+        select distinct id_channel from premier_partner_subchannels;
+excep_count       Exception;
+begin
+                l_start_date := sysdate;
+for i in get_descript
+LOOP
+  dbms_output.put_line(i.id_channel);
+--      if i.id_channel='Enduser' then raise excep_count;
+-- end if;
+END LOOP;
+dbms_output.put_line ('Run Date:' || l_start_date);
+EXCEPTION
+ WHEN no_data_found then
+  raise_application_error (-20999, 'No data in this table.');
+ WHEN excep_count then
+  dbms_output.put_line('Four records counted:');
+ WHEN others then
+  raise_application_error (-20998, 'Review your code for syntax');
+end;
+
+
+
+
+SQL> create table premier_test as
+(select * from premier_partner_subchannels where 1=2)

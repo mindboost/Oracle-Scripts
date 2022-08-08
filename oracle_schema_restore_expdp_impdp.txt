@@ -7,7 +7,7 @@ User dropped.
 
 
 
-create user vmw_va1_dbovcenter02 identified by IbidyBibbidyB00p55
+create user vmw_va1_dbovcenter02 identified by IbidyBibbidy?????
 grant connect, resource to vmw_va1_dbovcenter02
 grant execute on DBMS_LOCK to vmw_va1_dbovcenter02
 grant veriodev to vmw_va1_dbovcenter02;
